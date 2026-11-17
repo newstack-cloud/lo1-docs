@@ -13,7 +13,13 @@
  * Postgres's first-boot output, plugin phases).
  * Keep this in step with the CLI: a landing page that shows output the CLI
  * never prints is the fastest way to lose a first-time visitor's trust.
+ *
+ * Above both sits a screen recording of the same run (public/assets/lo1-demo.mp4).
+ * When re-recording, regenerate the poster from the final frame:
+ *   ffmpeg -sseof -0.5 -i lo1-demo.mp4 -frames:v 1 -q:v 3 lo1-demo-poster.jpg
  */
+
+import DemoVideo from '@/components/demo-video';
 
 const config = `version: "1"
 name: shop
@@ -105,6 +111,15 @@ const toneClass: Record<(typeof terminal)[number]['tone'], string> = {
 export default function Showcase() {
     return (
         <section className="px-6 pb-24 sm:pb-32 lg:px-8">
+            <div className="mx-auto mb-6 max-w-6xl text-left">
+                <Panel title="lo1 up, then https://web.shop.local" dark>
+                    <DemoVideo
+                        src="/assets/lo1-demo.mp4"
+                        poster="/assets/lo1-demo-poster.jpg"
+                        label="Running lo1 up in the shop example: Postgres starts, the migration and seed run, the API and web app start, then the shop page loads over HTTPS at web.shop.local."
+                    />
+                </Panel>
+            </div>
             <div className="mx-auto grid max-w-6xl gap-6 text-left lg:grid-cols-2">
                 <Panel title="lo1.yaml">
                     <pre className="overflow-x-auto p-5 font-mono text-[13px]/6 text-fd-foreground">

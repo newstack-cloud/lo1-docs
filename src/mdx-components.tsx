@@ -3,6 +3,7 @@ import { Heading } from 'fumadocs-ui/components/heading';
 import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
 import { Step, Steps } from 'fumadocs-ui/components/steps';
 import { icons } from 'lucide-react';
+import TerminalCast from '@/components/terminal-cast';
 import type { MDXComponents } from 'mdx/types';
 
 // use this function to get MDX components, you will need it for rendering MDX
@@ -14,6 +15,7 @@ export function getMDXComponents(components?: MDXComponents): MDXComponents {
     Tabs,
     Step,
     Steps,
+    TerminalCast,
     ...components,
     h4: ({ children, className, ...props }) => (
       <Heading

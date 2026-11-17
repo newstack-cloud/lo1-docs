@@ -26,6 +26,33 @@ html.dark {
   --terminal-bg: #060b14;
 }
 
+/*
+ * Colours for asciinema recordings in the docs (TerminalCast, theme: 'lo1'),
+ * matching the landing page's terminal panel: teal for [lo1] lines, amber for
+ * service output, on the terminal panel's background. Two classes,
+ * because the player's own stylesheet loads later and sets these on .ap-player.
+ */
+.ap-player.asciinema-player-theme-lo1 {
+  --term-color-foreground: #e2e8f0;
+  --term-color-background: var(--terminal-bg);
+  --term-color-0: #1e293b;
+  --term-color-1: #f87171;
+  --term-color-2: #6ee7b7;
+  --term-color-3: #fcd34d;
+  --term-color-4: #93c5fd;
+  --term-color-5: #f0abfc;
+  --term-color-6: #5eead4;
+  --term-color-7: #cbd5e1;
+  --term-color-8: #64748b;
+  --term-color-9: #fca5a5;
+  --term-color-10: #a7f3d0;
+  --term-color-11: #fde68a;
+  --term-color-12: #bfdbfe;
+  --term-color-13: #f5d0fe;
+  --term-color-14: #99f6e4;
+  --term-color-15: #f8fafc;
+}
+
 body {
   overscroll-behavior-y: none;
   background-color: var(--color-fd-background);

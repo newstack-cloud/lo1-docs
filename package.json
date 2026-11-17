@@ -17,6 +17,7 @@
     "@headlessui/react": "^2.2.7",
     "@heroicons/react": "^2.2.0",
     "algoliasearch": "^5.37.0",
+    "asciinema-player": "3.17.0",
     "fumadocs-core": "15.7.11",
     "fumadocs-mdx": "11.9.0",
     "fumadocs-ui": "15.7.11",

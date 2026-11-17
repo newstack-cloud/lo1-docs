@@ -9,6 +9,31 @@ frontends, backends and infrastructure in one `lo1.yaml` file, and `lo1 up` star
 infrastructure first, then your migrations and seed data, then services in dependency order, each
 with its own URL on a real domain, over HTTPS if you turn it on.
 
+Press play to watch what a run looks like, using the shop example from the
+[quick start](/docs/quick-start):
+
+<TerminalCast src="/assets/lo1-up.cast" label="Recording of lo1 up in the shop example: Postgres starts, the migration and seed run, then the API and web app start and their HTTPS URLs are listed.">
+
+```text
+$ lo1 up
+[lo1] Starting infrastructure
+[lo1] Starting services
+[lo1] migrate: completed
+[lo1] seed: completed
+[lo1] api: started
+[lo1] web: started
+[lo1] Ready
+
+  Workspace shop is ready in 3.7s
+    infrastructure 2.4s · services 1.3s
+
+  Services:
+    api  https://api.shop.local
+    web  https://web.shop.local
+```
+
+</TerminalCast>
+
 The name comes from the loopback interface (`lo`) and the `1` in `::1`, the IPv6 loopback address.
 
 ## Why lo1
