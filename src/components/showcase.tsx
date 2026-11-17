@@ -10,7 +10,7 @@
  * - `[migrate]`, `[seed]`, `[api]` lines: what the example's scripts print
  * - the closing summary: packages/cli/src/cli/commands/up.ts
  * `…` stands for lines left out (config loading, Docker Compose progress,
- * Postgres's first-boot output, npm install output, plugin phases).
+ * Postgres's first-boot output, plugin phases).
  * Keep this in step with the CLI: a landing page that shows output the CLI
  * never prints is the fastest way to lose a first-time visitor's trust.
  */
@@ -27,13 +27,13 @@ services:
   migrate:
     type: service
     path: ./api
-    command: npm install && node migrate.js
+    command: npm install && node src/migrate.js
     initTask: true
 
   seed:
     type: service
     path: ./api
-    command: node seed.js
+    command: node src/seed.js
     initTask: true
     dependsOn: [migrate]
 
@@ -41,7 +41,7 @@ services:
     type: service
     path: ./api
     port: 4100
-    command: node server.js
+    command: node src/server.js
     readinessProbe: http://localhost:4100/health
     dependsOn: [seed]
 
@@ -49,7 +49,7 @@ services:
     type: app
     path: ./web
     port: 4200
-    command: node server.js
+    command: node src/server.js
     dependsOn: [api]
 
 proxy:
@@ -66,6 +66,7 @@ const terminal = [
     { text: '…', tone: 'muted' },
     { text: '[lo1] Starting services', tone: 'phase' },
     { text: '[lo1] migrate: starting', tone: 'phase' },
+    { text: '[migrate] added 14 packages in 229ms', tone: 'output' },
     { text: '[migrate] migrations applied', tone: 'output' },
     { text: '[lo1] migrate: completed', tone: 'phase' },
     { text: '[lo1] seed: starting', tone: 'phase' },

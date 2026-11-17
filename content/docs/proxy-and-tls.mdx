@@ -39,6 +39,9 @@ passed through unchanged, so the service sees `/api/orders`, not `/orders`.
 `lo1 hosts` prints the hosts file block for every domain, and `lo1 hosts --apply` writes it. `lo1 up`
 does this for you.
 
+With `proxy.enabled: false`, lo1 does not run a proxy, so it leaves the hosts file alone and `lo1 up`
+doesn't ask for `sudo`. Reach services on `localhost` at their ports instead.
+
 ## TLS modes
 
 ### `internal`

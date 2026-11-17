@@ -36,7 +36,8 @@ phase took:
 ```
 
 In the foreground, `lo1 up` keeps running until you press `Ctrl+C`, then stops everything. If a
-plugin watches its services for changes, lo1 restarts them as it reports them.
+plugin watches its services for changes, lo1 restarts them as it reports them. If watching fails to
+start, lo1 prints an error and keeps the workspace running without it.
 
 | Option              | Description                                         |
 | ------------------- | --------------------------------------------------- |
@@ -93,7 +94,10 @@ Hosts file entries stay until you run `lo1 hosts --remove`.
 ## `lo1 status`
 
 Checks the running workspace: whether each service's process or container is still up, and whether
-the infrastructure is healthy. Finished init tasks aren't listed.
+the infrastructure is healthy. Infrastructure counts as healthy only when every long-running service
+in it is up and passing its health check; a container that has stopped counts against it, even with
+exit code 0, unless it's listed in `extraCompose.initTaskServices`. Finished init tasks aren't
+listed. While `lo1 up` is still starting services, the workspace is never reported healthy.
 
 ```text
 Workspace: shop (healthy)
