@@ -1,0 +1,87 @@
+---
+title: Proxy and TLS
+description: How lo1 routes requests to services and issues certificates for them.
+icon: Lock
+---
+
+lo1 runs [Caddy](https://caddyserver.com) as a reverse proxy in front of every service that has a
+`port`.
+
+```yaml
+proxy:
+  enabled: true # default
+  port: 80      # default
+  tld: local    # default
+  tls:
+    enabled: true # default false
+    port: 443   # default
+    mode: internal # default
+```
+
+## Routing
+
+Every service with a `port` is reachable at `<service>.<workspace>.<tld>`, for example
+`api.shop.local`. URLs use `https` when `proxy.tls.enabled` is true, and `http` otherwise. Two service
+options add more routes:
+
+```yaml
+services:
+  api:
+    port: 3000
+    proxy:
+      pathPrefix: /api          # https://shop.local/api/* → api
+      domain: api.example.test  # or a list of domains
+```
+
+`pathPrefix` routes requests under the prefix on `<workspace>.<tld>` to the service. The prefix is
+passed through unchanged, so the service sees `/api/orders`, not `/orders`.
+
+`lo1 hosts` prints the hosts file block for every domain, and `lo1 hosts --apply` writes it. `lo1 up`
+does this for you.
+
+## TLS modes
+
+### `internal`
+
+The default. Caddy's built-in certificate authority issues the certificates, and when TLS is enabled
+`lo1 up` installs its root into your machine's trust store. On Linux this needs `sudo`. You can also
+run [`lo1 tls-setup`](/docs/cli#lo1-tls-setup) to reinstall it on its own.
+
+Only the machine running lo1 trusts these certificates, so other devices on your network will see
+warnings.
+
+### `acme`
+
+Caddy obtains and renews publicly trusted certificates over the DNS-01 challenge, so every device on
+your network accepts them with nothing to install. You need a domain you control and an API token for
+its DNS provider.
+
+```yaml
+proxy:
+  tld: dev
+  tls:
+    enabled: true
+    mode: acme
+    acme:
+      provider: cloudflare          # any caddy-dns provider name
+      tokenEnv: CF_API_TOKEN        # host env var holding the DNS API token
+      email: me@example.com
+      domains: ["*.my-project.dev"]
+      ca: letsencrypt               # or "staging" while testing
+```
+
+Export the token in the shell you run `lo1 up` from, or put it in the workspace's
+[`.env` file](/docs/configuration#environment-files). lo1 passes it to the proxy by name, so the secret
+never lands in a generated file. If the provider needs more than one variable, list the others in
+`acme.env`. `lo1 up` stops before starting anything if one of them is not set.
+
+`ca` also accepts `zerossl` or the URL of any ACME directory.
+
+Hosts matching a wildcard in `domains` share one certificate, so adding a service needs no new
+issuance. When `domains` is set, hosts that match nothing in it fall back to the internal CA, which
+lets a workspace mix public names with `.local` ones. Without `domains`, ACME issues a certificate for
+every host.
+
+Other devices still need to resolve the names to your machine. Point A records for the domain, or the
+wildcard, at your machine's LAN IP in your DNS zone or your router. lo1's hosts file management only
+covers the machine running it.

@@ -1,0 +1,42 @@
+---
+title: Coding agents
+description: Let a coding agent start your whole system, check it and read its logs.
+icon: Bot
+---
+
+A coding agent can use lo1 the way you do. `lo1 up --detach` gives control back only once the whole
+system is ready, with migrations run and data seeded, and its exit code says whether that worked. The
+agent can then test its change against real services instead of mocks, and read the logs to see what
+broke.
+
+## Tell the agent about lo1
+
+Paste this into your project's `AGENTS.md`, `CLAUDE.md` or equivalent:
+
+```markdown title="AGENTS.md"
+## Local environment
+
+- Start everything: `lo1 up --detach` (returns once every service is ready; exits non-zero if anything fails to start)
+- Check health: `lo1 status --json` (exit 0 = healthy, 1 = something is down, 2 = not running)
+- Read logs: `lo1 logs <service>`
+- Re-run seed data: `lo1 restart seed`
+- Stop: `lo1 down`
+```
+
+Change `seed` to the name of your own seed [init task](/docs/configuration#init-tasks), or drop that
+line if you don't have one.
+
+## What the agent can rely on
+
+- **Exit codes.** `lo1 up` exits `0` once everything is ready, `1` if something failed to start and
+  `130` if it was interrupted. `lo1 status` exits `0`, `1` or `2` as above. See the
+  [CLI reference](/docs/cli).
+- **JSON output.** `lo1 up --detach --json` prints one line with each service's URL, the log directory
+  and how long startup took. `lo1 status --json` prints the state of every service. Progress goes to
+  stderr, so stdout holds only the JSON.
+- **Logs on disk.** Every service writes to `.lo1/logs/<service>.log`, so an agent can read them with
+  `lo1 logs <service>` or open the files directly.
+- **Setup problems up front.** `lo1 doctor --json` reports missing tools, taken ports and invalid
+  config before anything starts.
+
+Nothing here is agent-specific: it's the same commands and config your team uses.

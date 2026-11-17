@@ -1,0 +1,36 @@
+---
+title: Plugins
+description: Add service types that know how to run and provision themselves.
+icon: Puzzle
+---
+
+The lo1 core handles config, dependency ordering, Compose, process and container runners, the proxy
+and logs. Anything specific to a framework lives in a plugin.
+
+A plugin provides a service `type`. Register it in `lo1.yaml`, mapping the type name to an npm
+package name or to a path starting with `./` or `/`, which lo1 resolves against the workspace. The
+name the plugin reports must match its key under `plugins`:
+
+```yaml
+plugins:
+  celerity: "@lo1/plugin-celerity"
+
+services:
+  orders:
+    type: celerity
+    path: ./services/orders
+    port: 8080
+```
+
+A plugin can contribute Compose services, provision infrastructure once it is healthy, seed data,
+configure the container that runs its services, and watch its services for changes so a foreground
+`lo1 up` restarts them. The built-in types are `service` and `app`; a
+service with any other type needs a plugin that provides it.
+
+## Available plugins
+
+<Cards>
+  <Card title="Celerity" href="/docs/plugins/celerity" description="Blueprint-driven local infrastructure for Celerity applications." />
+</Cards>
+
+{/* TODO: add a "Writing a plugin" guide built on @lo1/sdk. */}

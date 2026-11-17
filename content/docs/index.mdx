@@ -1,0 +1,48 @@
+---
+title: Introduction
+description: lo1 runs your whole multi-service system on your own machine with one command.
+icon: House
+---
+
+lo1 is a local development environment for systems made of several services. You describe your
+frontends, backends and infrastructure in one `lo1.yaml` file, and `lo1 up` starts all of it:
+infrastructure first, then your migrations and seed data, then services in dependency order, each
+with its own URL on a real domain, over HTTPS if you turn it on.
+
+The name comes from the loopback interface (`lo`) and the `1` in `::1`, the IPv6 loopback address.
+
+## Why lo1
+
+Systems with several services break in the gaps between them: a changed payload, a queue nobody
+consumes, a CORS rule that only matters when the frontend and API are on different hosts. Those
+bugs usually show up in a shared staging environment, after a deploy. lo1 runs the whole system on
+your machine, so you see how a change behaves across every service as soon as you make it, instead
+of waiting on a deploy to find out.
+
+## What lo1 does
+
+- **Gets the system into a usable state.** lo1 waits for infrastructure health checks, runs your
+  migrations and seed scripts as [init tasks](/docs/configuration#init-tasks), then starts services
+  in dependency order, waiting on readiness probes before starting the next layer. `lo1 restart seed`
+  puts the data back whenever you need to.
+- **Serves every service on a real domain.** A built-in Caddy proxy gives each service with a port a
+  URL such as `https://api.shop.local`. Turn on TLS for a local certificate authority, or for publicly
+  trusted certificates over ACME on a domain you own.
+- **Uses the Compose files you already have.** Databases, caches, queues and emulators are plain
+  Docker Compose services.
+- **Wires services together.** Every service gets `LO1_SERVICE_<NAME>_URL` variables for the rest
+  of the workspace, whether it runs from source or in a container.
+- **Mixes dev and container mode.** Run the service you are working on from source with hot reload,
+  and the rest from their images.
+- **Spans many repositories.** `lo1 init` clones every repository a workspace lists.
+- **Works for coding agents.** `lo1 up --detach` returns once the system is ready, and exit codes and
+  JSON output tell an agent what happened. See [coding agents](/docs/coding-agents).
+- **Grows with plugins.** Plugins can add service types that provision their own infrastructure. A
+  [Celerity](/docs/plugins/celerity) plugin is in development.
+
+## Next steps
+
+<Cards>
+  <Card title="Install lo1" href="/docs/installation" />
+  <Card title="Quick start" href="/docs/quick-start" />
+</Cards>

@@ -1,0 +1,161 @@
+---
+title: Configuration
+description: Everything a lo1.yaml file can contain.
+icon: FileCog
+---
+
+A workspace is defined by one `lo1.yaml` file at its root.
+
+```yaml title="lo1.yaml"
+version: "1"
+name: shop
+
+plugins:
+  celerity: "@lo1/plugin-celerity"
+
+repositories:
+  api:
+    url: git@github.com:acme/shop-api.git
+    path: ./api
+
+services:
+  api:
+    type: service
+    path: ./api
+    port: 3000
+    command: npm run dev
+
+extraCompose: ./infra.compose.yaml
+
+proxy:
+  tld: local
+  tls:
+    enabled: true
+
+hooks:
+  postInfrastructure: ./scripts/migrate.sh
+```
+
+## Workspace fields
+
+| Field          | Required | Description                                                                           |
+| -------------- | -------- | ------------------------------------------------------------------------------------- |
+| `version`      | Yes      | Always `"1"`.                                                                         |
+| `name`         | Yes      | Workspace name. Used in hostnames, as `<service>.<name>.<tld>`.                       |
+| `services`     | Yes      | The services to run, keyed by name.                                                   |
+| `plugins`      | No       | Plugins to load, mapping a service type to an npm package or local path.              |
+| `repositories` | No       | Repositories `lo1 init` clones.                                                       |
+| `extraCompose` | No       | A Compose file for infrastructure, or `{ file, initTaskServices }`.                   |
+| `proxy`        | No       | Reverse proxy and TLS settings. See [Proxy and TLS](/docs/proxy-and-tls).             |
+| `hooks`        | No       | Workspace hooks: `postInfrastructure`, `postSetup` and `preStop`.                     |
+
+## Services
+
+| Field            | Default | Description                                                                         |
+| ---------------- | ------- | ----------------------------------------------------------------------------------- |
+| `type`           |         | Required. `service`, `app` (the two built-in types, which behave the same), or a type provided by a plugin. |
+| `path`           |         | Required. Directory holding the service's code.                                     |
+| `port`           |         | Port the service listens on. Services without one get no URL.                       |
+| `hostPort`       | `port`  | In container mode, the port lo1 publishes the container on, when it should differ from `port`. A dev-mode service listens on `port` directly. |
+| `mode`           | `dev`   | `dev`, `container` or `skip`. See [modes](#modes).                                  |
+| `command`        |         | Command that starts the service in dev mode. Required in dev mode for built-in types. |
+| `containerImage` |         | Image used in container mode. Container mode needs this or `compose`.               |
+| `compose`        |         | A Compose file, relative to `path`, that defines a service with the same name. Used in container mode only. |
+| `env`            |         | Extra environment variables.                                                        |
+| `dependsOn`      | `[]`    | Services that must be ready before this one starts.                                 |
+| `readinessProbe` |         | URL lo1 polls until it returns a 2xx response, for up to 60 seconds, before treating the service as ready. |
+| `initTask`       | `false` | Run once and wait for it to exit 0 before starting anything that depends on it, such as a migration or a seed script. See [init tasks](#init-tasks). |
+| `proxy`          |         | `domain` (one or a list) and `pathPrefix` routing. See [routing](/docs/proxy-and-tls#routing). |
+| `hooks`          |         | Service hooks: `preStart`, `postStart` and `preStop`.                               |
+| `plugin`         |         | Settings for the plugin that owns this service type.                                |
+
+### Modes
+
+- `dev` runs `command` on your machine, so your normal dev server and hot reload keep working.
+- `container` runs `containerImage`, publishing `port` on `hostPort`, or the service's `compose` file.
+- `skip` leaves the service out entirely.
+
+Services of a plugin type run however the plugin decides; a plugin that configures containers runs
+them in a container in every mode.
+
+Every service starts in `dependsOn` order whatever its mode, after the infrastructure and the
+`postInfrastructure` hook, and gets the same [discovery variables](/docs/service-discovery). A
+service in a container reaches dev-mode services through `host.docker.internal`.
+
+`lo1 up --mode container` overrides every service that isn't `skip`, and `--services api,web` starts
+the services you name plus everything they depend on.
+
+## Init tasks
+
+An init task is a service that runs to completion instead of staying up: a migration, a seed script,
+a fixture loader. lo1 runs it once, in `dependsOn` order like any other service, and waits for it to
+exit. Services that depend on it start only after it exits 0. If it fails, `lo1 up` stops there.
+
+```yaml title="lo1.yaml"
+services:
+  migrate:
+    type: service
+    path: ./api
+    command: npm run db:migrate
+    initTask: true
+
+  seed:
+    type: service
+    path: ./api
+    command: npm run db:seed
+    initTask: true
+    dependsOn: [migrate]
+
+  api:
+    type: service
+    path: ./api
+    port: 3000
+    command: npm run dev
+    dependsOn: [seed]
+```
+
+Init tasks run in dev or container mode, the same as other services. Run one again in a running
+workspace with [`lo1 restart`](/docs/cli#lo1-restart), for example `lo1 restart seed` to put the seed
+data back.
+
+## Environment files
+
+Every lo1 command loads a `.env` file from the workspace root, if there is one: `KEY=value` lines,
+with `#` comments and quoted values. A variable already set in your shell wins over the file.
+
+The values reach everything lo1 runs on your machine: dev-mode services, init tasks and hooks. They
+also reach `${VAR}` references in your Compose files and [ACME credentials](/docs/proxy-and-tls#acme).
+Containers don't get them automatically; pass one into a Compose service with
+`environment: [FOO=${FOO}]`. `lo1.yaml` itself doesn't expand `${VAR}`, so `env` values are taken
+literally. Keep `.env` out of version control.
+
+## Repositories
+
+```yaml
+repositories:
+  api:
+    url: git@github.com:acme/shop-api.git
+    path: ./api
+    branch: main
+```
+
+`url` and `path` are required. `lo1 init` clones each repository to its `path`, checks out `branch`
+if set, and skips any path that already exists. If a clone fails, the others still run, and the
+command exits with an error.
+
+## Hooks
+
+Hooks are shell commands run at fixed points:
+
+| Hook                 | Runs                                                        |
+| -------------------- | ----------------------------------------------------------- |
+| `postInfrastructure` | After the infrastructure is healthy, before any service starts. |
+| `postSetup`          | After every service has started.                            |
+| `preStop` (workspace)| Before the workspace is torn down by `lo1 down` or `Ctrl+C`. |
+| `preStart`           | Before a service starts.                                    |
+| `postStart`          | After a service is ready, or an init task has completed.    |
+| `preStop` (service)  | Before a service is stopped, by `lo1 down`, `Ctrl+C` or `lo1 restart`. A failing service `preStop` is reported, and teardown carries on. |
+
+Workspace hooks run from the workspace root and service hooks from the service's `path`, both with
+`sh -c`. Service hooks get the same environment as the service. If a workspace `postInfrastructure`
+or `postSetup` hook fails, `lo1 up` stops.

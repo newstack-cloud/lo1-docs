@@ -1,0 +1,194 @@
+---
+title: Quick start
+description: Run a frontend, an API and a migrated, seeded database together with one command.
+icon: Rocket
+---
+
+This guide runs a small shop: a web frontend, an API and Postgres, with a migration and seed data
+that run before the API starts, all served over HTTPS on `*.shop.local`. You need lo1
+[installed](/docs/installation), and Docker running.
+
+<Steps>
+
+<Step>
+
+### Get the example
+
+```bash
+npx degit newstack-cloud/lo1/examples/shop shop
+cd shop
+```
+
+Or clone the lo1 repository and `cd lo1/examples/shop`.
+
+</Step>
+
+<Step>
+
+### Check your machine
+
+```bash
+lo1 doctor
+```
+
+`lo1 doctor` checks Node.js, Docker and Git, that `lo1.yaml` is valid and that the ports the example
+needs are free. Anything marked `✗` comes with a fix. On a first run it warns that the example's
+domains aren't in your hosts file yet; `lo1 up` adds them.
+
+</Step>
+
+<Step>
+
+### Start it
+
+```bash
+lo1 up
+```
+
+lo1 asks for `sudo` to add `api.shop.local` and `web.shop.local` to your hosts file. On Linux the same
+prompt covers trusting its local certificate authority; on macOS the certificate goes into your login
+keychain, which may show its own password dialog the first time.
+
+Then it starts Postgres and waits for its health check, runs the migration, loads the seed data,
+starts the API and waits for it to answer on `/health`, and finally starts the web app:
+
+```text
+  Workspace shop is ready in 3.8s
+    infrastructure 2.4s · services 1.4s
+
+  Services:
+    api  https://api.shop.local
+    web  https://web.shop.local
+
+  Logs:  /Users/you/shop/.lo1/logs
+         Run lo1 logs [service] to tail, lo1 logs --list to see available
+
+  Press Ctrl+C to stop
+```
+
+Open [https://web.shop.local](https://web.shop.local) to see the products, read from Postgres through
+the API.
+
+</Step>
+
+<Step>
+
+### Try it
+
+In another terminal, from the `shop` directory:
+
+| Command            | What it does                                                    |
+| ------------------ | --------------------------------------------------------------- |
+| `lo1 status`       | Shows each service's health. Exits 0 when everything is up.     |
+| `lo1 logs api`     | Tails the API's log.                                            |
+| `lo1 restart seed` | Runs the seed again, putting the products back how they started. |
+| `lo1 restart api`  | Restarts the API and waits for its health check.                |
+
+</Step>
+
+<Step>
+
+### Stop it
+
+Press `Ctrl+C`. To keep the workspace running without a terminal, start it with `lo1 up --detach`,
+which returns once everything is ready, and stop it later with `lo1 down`. Add `--clean` to either
+to delete the database volume too.
+
+</Step>
+
+</Steps>
+
+## How the example fits together
+
+Postgres is an ordinary Docker Compose service:
+
+```yaml title="infra.compose.yaml"
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+      POSTGRES_DB: shop
+    ports:
+      - "54329:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "shop"]
+      interval: 2s
+      retries: 15
+```
+
+lo1 waits for every infrastructure service with a `healthcheck` to report healthy before starting
+anything else. Without one, it only waits for the container to be running, which can be before
+Postgres accepts connections.
+
+`lo1.yaml` lists the services:
+
+```yaml title="lo1.yaml"
+version: "1"
+name: shop
+
+extraCompose: ./infra.compose.yaml
+
+services:
+  migrate:
+    type: service
+    path: ./api
+    command: npm install --no-audit --no-fund --loglevel=error && node migrate.js
+    initTask: true
+    env:
+      DATABASE_URL: postgres://shop:shop@localhost:54329/shop
+
+  seed:
+    type: service
+    path: ./api
+    command: node seed.js
+    initTask: true
+    dependsOn: [migrate]
+    env:
+      DATABASE_URL: postgres://shop:shop@localhost:54329/shop
+
+  api:
+    type: service
+    path: ./api
+    port: 4100
+    command: node server.js
+    readinessProbe: http://localhost:4100/health
+    dependsOn: [seed]
+    env:
+      PORT: "4100"
+      DATABASE_URL: postgres://shop:shop@localhost:54329/shop
+
+  web:
+    type: app
+    path: ./web
+    port: 4200
+    command: node server.js
+    dependsOn: [api]
+    env:
+      PORT: "4200"
+
+proxy:
+  tld: local
+  tls:
+    enabled: true
+```
+
+- `path` is where each service's code lives and `command` is how you would start it by hand.
+- `migrate` and `seed` are [init tasks](/docs/configuration#init-tasks): they run once, in order, and
+  must exit 0 before anything that depends on them starts. If one fails, `lo1 up` stops there.
+- `readinessProbe` makes lo1 wait for the API to answer before starting the web app.
+- The web app finds the API through `LO1_SERVICE_API_PROXY_URL` (`https://api.shop.local`), which lo1
+  sets for every service. Browser code can't read environment variables, so in your own frontend
+  expose it through your framework, for example as `VITE_API_URL` in Vite's config. See
+  [service discovery](/docs/service-discovery) for the full list.
+
+To use lo1 in your own project, write a `lo1.yaml` like this one next to your code, with your own
+commands, and keep your infrastructure in the Compose files you already have.
+
+## Next steps
+
+- Split services across repositories with [`repositories` and `lo1 init`](/docs/configuration#repositories).
+- Run some services from container images with [service modes](/docs/configuration#modes).
+- Let a coding agent start and check the system with [lo1 for coding agents](/docs/coding-agents).
+- Reach the workspace from your phone with [ACME certificates](/docs/proxy-and-tls#acme).

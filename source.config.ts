@@ -1,0 +1,31 @@
+import {
+  defineConfig,
+  defineDocs,
+  frontmatterSchema,
+  metaSchema,
+} from 'fumadocs-mdx/config';
+import {
+  rehypeCodeDefaultOptions,
+  remarkAdmonition,
+  remarkSteps,
+} from 'fumadocs-core/mdx-plugins';
+
+// You can customise Zod schemas for frontmatter and `meta.json` here
+// see https://fumadocs.dev/docs/mdx/collections#define-docs
+export const docs = defineDocs({
+  docs: {
+    schema: frontmatterSchema,
+    async: true,
+  },
+  meta: {
+    schema: metaSchema,
+  },
+});
+
+export default defineConfig({
+  lastModifiedTime: 'git',
+  mdxOptions: {
+    remarkPlugins: [remarkSteps, remarkAdmonition],
+    rehypeCodeOptions: rehypeCodeDefaultOptions,
+  },
+});

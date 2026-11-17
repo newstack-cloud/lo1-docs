@@ -1,0 +1,162 @@
+---
+title: CLI reference
+description: Every lo1 command and its options.
+icon: Terminal
+---
+
+The global `--json` flag makes `lo1 up`, `lo1 status`, `lo1 doctor` and error messages print JSON.
+Other commands print human-readable output. It works before or after the command name, as in
+`lo1 status --json`. `-V, --version` prints the installed version.
+
+Every command loads a `.env` file from the current directory first, without overriding variables
+already set in your shell. See [environment files](/docs/configuration#environment-files).
+
+## `lo1 init`
+
+Clones the repositories listed in `lo1.yaml` and checks out each one's `branch`, if set. Repositories
+that already exist are skipped, and the command exits with an error if any clone fails.
+
+| Option            | Description                                |
+| ----------------- | ------------------------------------------ |
+| `--config <path>` | Path to the config file. Default `lo1.yaml`. |
+
+## `lo1 up`
+
+Starts infrastructure, runs workspace hooks, then starts services in dependency order. It reads
+`lo1.yaml` from the current directory, asks for `sudo` up front when it needs to update the hosts file
+(or, on Linux, trust the local certificate authority), and cleans up any previous run first.
+
+It fails before starting anything if a port it needs is already in use, and names the setting to
+change. Once every service is ready it prints a summary with each service's URL and how long each
+phase took:
+
+```text
+  Workspace shop is ready in 3.8s
+    infrastructure 2.4s · services 1.4s
+```
+
+In the foreground, `lo1 up` keeps running until you press `Ctrl+C`, then stops everything. If a
+plugin watches its services for changes, lo1 restarts them as it reports them.
+
+| Option              | Description                                         |
+| ------------------- | --------------------------------------------------- |
+| `--services <names>`| Comma-separated services to start, plus everything they depend on through `dependsOn`. |
+| `--mode <mode>`     | Run every service in `dev` or `container` mode. Services with `mode: skip` stay skipped. |
+| `-d, --detach`      | Start in the background, return once everything is ready, and leave it running. Stop it with `lo1 down`. |
+| `--skip-teardown`   | Leave containers running on exit, for debugging.    |
+| `--clean`           | Remove volumes and orphan containers on teardown.   |
+
+| Exit code | Meaning                                              |
+| --------- | ---------------------------------------------------- |
+| `0`       | Everything is ready (with `--detach`), or you stopped it with `Ctrl+C` after it was ready. |
+| `1`       | Something failed to start. lo1 stops what it started, unless you passed `--skip-teardown`. |
+| `130`     | `Ctrl+C` before everything was ready.                |
+
+With `--json`, progress goes to stderr and stdout gets one line once the workspace is ready:
+
+```json
+{"workspace":"shop","ready":true,"detached":true,"durationMs":3768,"phases":[{"name":"infrastructure","ms":2391},{"name":"services","ms":1377}],"services":[{"name":"api","url":"https://api.shop.local"},{"name":"web","url":"https://web.shop.local"}],"logs":"/Users/you/shop/.lo1/logs"}
+```
+
+## `lo1 restart <services...>`
+
+Restarts services in the running workspace, in the order you name them. lo1 runs each one's
+`preStop` hook, stops it, starts it again and waits for its readiness probe. Naming an
+[init task](/docs/configuration#init-tasks) runs it again, so `lo1 restart seed` re-runs your seed
+data and `lo1 restart migrate seed` runs both, in that order:
+
+```text
+[lo1] seed: starting
+[lo1] seed: completed
+```
+
+When the workspace was started with `--detach`, the service's own output goes to its log file rather
+than the terminal.
+
+It works on a workspace started with `--detach` or still running in another terminal, and exits
+with an error if no workspace is running, a name isn't in `lo1.yaml`, or a service fails to start.
+
+Only one restart changes a workspace at a time. If another `lo1 restart` is already running there,
+the second waits for it to finish, for up to two minutes, then fails with a `WorkspaceLocked` error.
+
+## `lo1 down`
+
+Stops the workspace recorded in `.lo1`, such as one started with `--detach` or left running by
+`--skip-teardown`. It runs the workspace `preStop` hook, then each service's `preStop` hook as it
+stops that service, then stops the infrastructure.
+Hosts file entries stay until you run `lo1 hosts --remove`.
+
+| Option    | Description                            |
+| --------- | -------------------------------------- |
+| `--clean` | Remove volumes and orphan containers.  |
+
+## `lo1 status`
+
+Checks the running workspace: whether each service's process or container is still up, and whether
+the infrastructure is healthy. Finished init tasks aren't listed.
+
+```text
+Workspace: shop (healthy)
+
+Infrastructure: healthy
+  postgres
+  lo1-shop-proxy
+
+Services:
+  api  running  dev:4100  https://api.shop.local
+  web  running  dev:4200  https://web.shop.local
+```
+
+| Exit code | Meaning                          |
+| --------- | -------------------------------- |
+| `0`       | Everything is up and healthy.    |
+| `1`       | Something is down or unhealthy.  |
+| `2`       | No workspace is running here.    |
+
+With `--json` it prints one object with `workspace`, `healthy`, `services` (each with `name`,
+`state`, `mode`, and `port`, `hostPort` and `url` where they apply) and `infrastructure`.
+
+## `lo1 doctor`
+
+Checks that this machine and workspace are ready for `lo1 up`: Node.js, Docker and its daemon, Docker
+Compose v2, Git, and, in a workspace, that `lo1.yaml` is valid, that the ports it needs are free,
+whether its domains are in the hosts file yet, and that any ACME credentials are set. Each check
+prints `✓`, `!` (a warning) or `✗` (a problem) with a suggested fix.
+
+It exits `1` if any check fails. With `--json` it prints `{ "ok": …, "checks": [...] }`.
+
+| Option            | Description                                  |
+| ----------------- | -------------------------------------------- |
+| `--config <path>` | Path to the config file. Default `lo1.yaml`. |
+
+## `lo1 logs [service]`
+
+Tails log files from the most recent `lo1 up`. Logs are written to `.lo1/logs` in the workspace, one
+file per service plus `infrastructure` and `hooks`. Each `lo1 up` starts with an empty log directory.
+
+| Option   | Description                   |
+| -------- | ----------------------------- |
+| `--list` | List the available log files. |
+
+## `lo1 hosts`
+
+Prints the hosts file entries for the workspace's domains.
+
+| Option            | Description                                      |
+| ----------------- | ------------------------------------------------ |
+| `--apply`         | Write the entries to the hosts file (needs sudo). |
+| `--remove`        | Remove the entries (needs sudo).                 |
+| `--config <path>` | Path to the config file. Default `lo1.yaml`.     |
+
+## `lo1 tls-setup`
+
+Trusts Caddy's local certificate authority so browsers accept local certificates without warnings.
+`lo1 up` already does this when TLS is enabled; run `tls-setup` to reinstall the certificate.
+
+It needs a running workspace, and copies the certificate out of its proxy container. It does nothing
+when `proxy.tls.mode` is `acme`, because there is no local certificate authority.
+
+| Platform | Where the certificate goes                                                      |
+| -------- | ------------------------------------------------------------------------------- |
+| macOS    | Your login keychain, with `security add-trusted-cert`.                          |
+| Linux    | `/usr/local/share/ca-certificates`, then `update-ca-certificates` (needs sudo). |

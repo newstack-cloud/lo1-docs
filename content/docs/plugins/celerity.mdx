@@ -1,0 +1,45 @@
+---
+title: Celerity
+description: Run Celerity applications locally, with their infrastructure created from blueprints.
+---
+
+<Callout type="warn">
+  The Celerity plugin is in development and not yet usable. This page describes what it will do.
+</Callout>
+
+[Celerity](https://celerityframework.io) gives you portable building blocks for backends: APIs,
+WebSockets, queues and more. A Celerity application describes the infrastructure it needs
+in a blueprint.
+
+The `@lo1/plugin-celerity` plugin will read those blueprints, so you will not have to write the local
+infrastructure yourself:
+
+| Step              | What the plugin will do                                                          |
+| ----------------- | ----------------------------------------------------------------------------- |
+| Compose           | Generates Compose services for the queues, topics and datastores a blueprint declares. |
+| Provisioning      | Creates tables, buckets and schemas once the infrastructure is healthy.       |
+| Seeding           | Applies seed data.                                                            |
+| Container mode    | Configures the container that runs the Celerity service.                      |
+| Watching          | Restarts the service when blueprints or source files change.                  |
+
+Services that share a queue or topic will be connected by giving the resources matching `spec.name`
+values, so several Celerity services can exchange events locally with no extra wiring.
+
+## Configuration
+
+```yaml title="lo1.yaml"
+version: "1"
+name: shop
+
+plugins:
+  celerity: "@lo1/plugin-celerity"
+
+services:
+  orders:
+    type: celerity
+    path: ./services/orders
+    port: 8080
+```
+
+Celerity services will sit in the same workspace as any other service, so a React frontend, a legacy API
+and a set of Celerity services will all start with one `lo1 up`.

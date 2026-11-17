@@ -1,0 +1,35 @@
+---
+title: Service discovery
+description: The environment variables lo1 sets so services can find each other.
+icon: Network
+---
+
+lo1 starts every service, whether it runs from source, from a container image or through a plugin,
+with variables describing every service in the workspace that has a `port` and is not skipped,
+including itself. Service names become upper case keys, with hyphens turned into underscores:
+`shop-api` becomes `LO1_SERVICE_SHOP_API_URL`.
+
+| Variable                        | Value                                                     |
+| ------------------------------- | --------------------------------------------------------- |
+| `LO1_SERVICE_<NAME>_URL`        | Direct URL to the service.                                |
+| `LO1_SERVICE_<NAME>_PORT`       | Port to reach it on.                                      |
+| `LO1_SERVICE_<NAME>_PROXY_URL`  | URL through the proxy, such as `https://api.shop.local`. Uses `http` unless TLS is enabled, and ignores custom `proxy.domain` values. |
+| `LO1_SERVICE_NAME`              | The name of the service receiving the variables.          |
+| `LO1_WORKSPACE_NAME`            | The workspace name.                                       |
+
+The direct URL depends on where the consumer and the target run:
+
+| Consumer         | Target in dev mode                         | Target in a container           |
+| ---------------- | ------------------------------------------ | ------------------------------- |
+| Dev mode         | `http://localhost:<port>`                  | `http://localhost:<hostPort>`   |
+| In a container   | `http://host.docker.internal:<port>`       | `http://api:3000`, on the Compose network |
+
+On Linux, lo1 maps `host.docker.internal` for the containers it runs, so the same URLs work there.
+
+Values you set in a service's `env` override the discovery variables, except `LO1_SERVICE_NAME` and
+`LO1_WORKSPACE_NAME`. A service's `preStart`, `postStart` and `preStop` hooks get the same variables
+as the service. Workspace hooks don't get them.
+
+```ts
+const apiUrl = process.env.LO1_SERVICE_API_URL ?? 'http://localhost:3000';
+```

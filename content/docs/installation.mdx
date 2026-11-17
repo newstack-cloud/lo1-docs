@@ -1,0 +1,69 @@
+---
+title: Installation
+description: Install the lo1 CLI on macOS or Linux, or on Windows through WSL 2.
+icon: Download
+---
+
+lo1 runs on macOS and Linux. On Windows, install and run it inside
+[WSL 2](https://learn.microsoft.com/windows/wsl/install), with Docker Desktop's WSL integration turned on.
+
+## Prerequisites
+
+| Dependency                                    | Version | Purpose                                           |
+| --------------------------------------------- | ------- | ------------------------------------------------- |
+| [Node.js](https://nodejs.org/)                | 24+     | CLI runtime                                       |
+| [Docker](https://docs.docker.com/get-docker/) | 20.10+  | Container services, infrastructure, reverse proxy |
+| [Git](https://git-scm.com/)                   | 2.x     | Cloning repositories with `lo1 init`              |
+
+Docker Compose v2 ships with Docker Desktop on macOS and Windows, and with current Docker Engine
+packages on Linux.
+
+## Install the CLI
+
+<Tabs items={['npm', 'Bun', 'pnpm', 'Yarn']}>
+  <Tab value="npm">
+    ```bash
+    npm install -g @lo1/cli
+    ```
+  </Tab>
+  <Tab value="Bun">
+    ```bash
+    bun install -g @lo1/cli
+    ```
+  </Tab>
+  <Tab value="pnpm">
+    ```bash
+    pnpm add -g @lo1/cli
+    ```
+  </Tab>
+  <Tab value="Yarn">
+    ```bash
+    yarn global add @lo1/cli
+    ```
+  </Tab>
+</Tabs>
+
+Check that it is on your path:
+
+```bash
+lo1 --help
+```
+
+Then check that Docker, Compose and Git are ready:
+
+```bash
+lo1 doctor
+```
+
+Run it again from a workspace to also check its `lo1.yaml`, the ports it needs and its hosts file
+entries.
+
+## Editor support
+
+The `@lo1/sdk` package publishes a JSON Schema for `lo1.yaml`. Point the YAML language server at it
+for autocompletion and validation:
+
+```yaml title="lo1.yaml"
+# yaml-language-server: $schema=https://unpkg.com/@lo1/sdk/schemas/lo1.v1.schema.json
+version: "1"
+```

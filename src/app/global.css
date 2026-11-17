@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+html,
+html.dark {
+  --color-fd-primary: var(--ui-color);
+  scroll-behavior: smooth !important;
+}
+
+/*
+ * lo1 brand accent. Teal keeps lo1 visually distinct from Celerity (indigo)
+ * while sitting comfortably next to it in the ecosystem section.
+ */
+:root {
+  --ui-color: #0d9488;
+  --ui-color-soft: #5eead4;
+  --ui-highlight-bg-color: rgb(204, 238, 234);
+  --terminal-bg: #0b1220;
+}
+
+.dark {
+  --ui-color: #2dd4bf;
+  --ui-color-soft: #0f766e;
+  --ui-highlight-bg-color: rgb(19, 78, 74);
+  --terminal-bg: #060b14;
+}
+
+body {
+  overscroll-behavior-y: none;
+  background-color: var(--color-fd-background);
+}
+
+.prose
+  :where(a:not([data-card])):not(
+    :where([class~="not-prose"], [class~="not-prose"] *)
+  ) {
+  color: var(--color-fd-primary);
+  text-decoration: none;
+}
+
+.search-highlight em {
+  color: var(--color-fd-primary);
+  font-style: normal;
+  background-color: var(--ui-highlight-bg-color);
+  padding: 0 2px;
+  border-radius: 2px;
+}

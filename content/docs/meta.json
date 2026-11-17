@@ -1,0 +1,18 @@
+{
+  "title": "lo1",
+  "root": true,
+  "pages": [
+    "---Getting started---",
+    "index",
+    "installation",
+    "quick-start",
+    "---Guides---",
+    "configuration",
+    "proxy-and-tls",
+    "service-discovery",
+    "coding-agents",
+    "---Reference---",
+    "cli",
+    "plugins"
+  ]
+}
