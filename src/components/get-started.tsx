@@ -9,7 +9,7 @@ export default function GetStarted() {
                     Get your stack running in five minutes
                 </h2>
                 <p className="mt-4 text-pretty text-lg/8 text-fd-muted-foreground">
-                    You need Node.js 24+ and Docker. lo1 runs on macOS and Linux, and on Windows through WSL 2.
+                    You need Node.js 24+ and Docker. lo1 runs on macOS, Linux and Windows.
                 </p>
                 <div className="mt-8 flex flex-col items-center gap-6">
                     <CopyCommand command="npm install -g @lo1/cli" />
