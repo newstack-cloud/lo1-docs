@@ -3,6 +3,7 @@
 import { Check, Copy } from 'lucide-react';
 import { useCopyButton } from 'fumadocs-ui/utils/use-copy-button';
 import { cn } from '@/lib/cn';
+import { trackEvent } from '@/lib/analytics';
 
 type Props = {
     command: string;
@@ -10,12 +11,14 @@ type Props = {
 };
 
 /**
- * A one-line shell command with a copy button. Clicks on the copy button are
- * the main conversion event for the landing page, so this is where analytics
- * should hook in once a provider is chosen.
+ * A one-line shell command with a copy button. Copies are the landing page's
+ * main conversion, so each one is counted as a "Copy install command" event.
  */
 export default function CopyCommand({ command, className }: Props) {
-    const [checked, onClick] = useCopyButton(() => navigator.clipboard.writeText(command));
+    const [checked, onClick] = useCopyButton(() => {
+        trackEvent('Copy install command');
+        return navigator.clipboard.writeText(command);
+    });
 
     return (
         <div

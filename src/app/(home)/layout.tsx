@@ -12,6 +12,7 @@ const footerLinks = [
   { text: 'npm', href: 'https://www.npmjs.com/package/@lo1/cli' },
   { text: 'Celerity', href: 'https://celerityframework.io' },
   { text: 'Bluelink', href: 'https://bluelink.dev' },
+  { text: 'Privacy', href: '/privacy' },
 ];
 
 function Footer() {

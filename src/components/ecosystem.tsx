@@ -1,12 +1,5 @@
 import Link from 'fumadocs-core/link';
-
-/**
- * The Celerity plugin ships from the lo1 repo, so its releases page is where
- * a release shows up. TODO: replace with a real signup form (Buttondown,
- * ConvertKit…) and relabel the button "Get notified" before running any paid
- * traffic. Signups are the main signal for interest in Celerity through lo1.
- */
-const RELEASES_URL = 'https://github.com/newstack-cloud/lo1/releases';
+import SignupForm from './signup-form';
 
 const stages = [
     {
@@ -86,17 +79,18 @@ export default function Ecosystem() {
                     to describe and deploy cloud resources directly.
                 </p>
 
-                <div className="mx-auto mt-12 flex max-w-2xl flex-col items-center gap-4 rounded-xl border border-dashed p-6 text-center sm:flex-row sm:text-left">
-                    <p className="flex-1 text-sm/6 text-fd-muted-foreground">
+                <div className="mx-auto mt-12 max-w-2xl rounded-xl border border-dashed p-6 text-left">
+                    <p className="text-sm/6 text-fd-muted-foreground">
                         <span className="font-semibold text-fd-foreground">The Celerity plugin is on its way.</span>{' '}
-                        Blueprint-driven queues, topics, datastores and seed data, started by lo1 up.
+                        Blueprint-driven queues, topics, datastores and seed data, started by lo1 up. Get an
+                        email when it ships.
                     </p>
-                    <Link
-                        href={RELEASES_URL}
-                        className="shrink-0 rounded-md border px-3.5 py-2 text-sm font-semibold text-fd-foreground hover:border-fd-primary hover:text-fd-primary"
-                    >
-                        Follow releases on GitHub
-                    </Link>
+                    <SignupForm
+                        source="celerity"
+                        label="Email address for Celerity release announcements"
+                        buttonText="Get notified"
+                        className="mt-4"
+                    />
                 </div>
             </div>
         </section>

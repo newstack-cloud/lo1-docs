@@ -1,5 +1,6 @@
 import Link from 'fumadocs-core/link';
 import CopyCommand from './copy-command';
+import SignupForm from './signup-form';
 
 export default function GetStarted() {
     return (
@@ -19,6 +20,14 @@ export default function GetStarted() {
                     >
                         Read the quick start
                     </Link>
+                </div>
+                <div className="mx-auto mt-16 max-w-md border-t pt-10 text-left">
+                    <h3 className="text-center text-base font-semibold text-fd-foreground">Hear about new releases</h3>
+                    <SignupForm
+                        source="lo1"
+                        label="Email address for lo1 release announcements"
+                        className="mt-4"
+                    />
                 </div>
             </div>
         </section>
