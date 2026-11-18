@@ -1,0 +1,182 @@
+---
+title: Troubleshooting
+description: Fixes for the problems people most often hit when they start a workspace.
+icon: LifeBuoy
+---
+
+## Start with `lo1 doctor`
+
+```bash
+lo1 doctor
+```
+
+It checks Node.js, Docker, Docker Compose and Git, then, from a workspace directory, that `lo1.yaml`
+is valid, that the ports it needs are free and whether its domains are in the hosts file. Each
+problem comes with a fix.
+
+When a service fails after that, its log usually says why:
+
+```bash
+lo1 logs --list   # see the logs from the last lo1 up
+lo1 logs api      # tail one of them
+```
+
+Logs are in `.lo1/logs` in the workspace. To see what lo1 itself is doing, run it with
+`DEBUG=lo1:*`, for example `DEBUG=lo1:* lo1 up`.
+
+## Docker isn't running
+
+`lo1 doctor` reports "Docker is installed, but the Docker daemon is not running", and `lo1 up` fails
+at its first `docker compose` step with Docker's own message, such as "Cannot connect to the Docker
+daemon".
+
+Start Docker Desktop, or on Linux run `sudo systemctl start docker`. Wait until `docker info` works,
+then run `lo1 up` again.
+
+If `lo1 doctor` says Docker is not installed when Docker Desktop is, you're probably inside WSL 2 with
+Docker Desktop's WSL integration turned off for this distribution. Turn it on under Settings →
+Resources → WSL integration, or run lo1 from PowerShell instead.
+
+## A port is already in use
+
+```text
+Port 443 is already in use, but the proxy needs it (proxy.tls.port)
+```
+
+`lo1 up` checks every port before starting anything, and names the setting that claims each one.
+Either stop whatever is using the port, or change that setting in `lo1.yaml`.
+
+To find what is using a port:
+
+<Tabs items={['macOS', 'Linux', 'Windows']}>
+  <Tab value="macOS">
+    ```bash
+    lsof -nP -iTCP:443 -sTCP:LISTEN
+    ```
+  </Tab>
+  <Tab value="Linux">
+    ```bash
+    sudo ss -ltnp 'sport = :443'
+    ```
+  </Tab>
+  <Tab value="Windows">
+    ```powershell
+    Get-Process -Id (Get-NetTCPConnection -LocalPort 443 -State Listen).OwningProcess
+    ```
+  </Tab>
+</Tabs>
+
+Ports 80 and 443 are often taken by another local web server, another tool's proxy, or IIS on
+Windows. If you move the proxy with `proxy.port` or `proxy.tls.port`, service URLs include the port,
+such as `https://api.shop.local:8443`.
+
+If the port belongs to a workspace you left running, stop it with `lo1 down` from that workspace.
+
+## The hosts file can't be updated
+
+lo1 adds every domain to your hosts file so they resolve to your machine.
+
+- **macOS and Linux:** `lo1 up` asks for `sudo` before it starts. If you cancel the prompt, it stops
+  there.
+- **Windows:** unless PowerShell is running as Administrator, a UAC prompt appears partway through
+  `lo1 up`. If you decline it, lo1 fails with "Failed to write C:\Windows\System32\drivers\etc\hosts".
+  Run it again and accept the prompt, or open PowerShell as Administrator.
+
+To check what lo1 wrote, look for the block between `# lo1-start` and `# lo1-end` in `/etc/hosts`,
+or `C:\Windows\System32\drivers\etc\hosts` on Windows. `lo1 hosts` prints the block lo1 expects,
+`lo1 hosts --apply` writes it and `lo1 hosts --remove` takes it out again.
+
+## The browser says the connection is not private
+
+With TLS in `internal` mode, `lo1 up` installs a local certificate authority on your machine. A
+warning such as "Your connection is not private" means the browser doesn't trust it yet.
+
+- **macOS:** the CA goes into your login keychain, which may ask for your password the first time.
+- **Linux:** the CA goes into the system store, which Chrome and Firefox don't read. lo1 also adds it
+  to their own stores, but only if `certutil` is installed. `lo1 doctor` warns when it isn't:
+
+  ```bash
+  sudo apt install libnss3-tools   # Debian, Ubuntu
+  sudo dnf install nss-tools       # Fedora
+  sudo pacman -S nss               # Arch
+  ```
+
+- **Windows:** the CA goes into your user's certificate store, which Chrome and Edge use, after you
+  confirm the "Caddy Local Authority" dialog.
+
+After fixing the cause, run `lo1 tls-setup` to install the CA again, then restart the browser.
+
+If you clicked through the warning before the CA was trusted, Chrome remembers that and keeps showing
+"Not secure". Click **Not secure** in the address bar, choose **Turn on warnings**, then quit Chrome
+completely and reopen it. On Linux, Chrome may keep running in the background after you close its
+windows; `pkill chrome` makes sure it has stopped.
+
+Only the machine running lo1 trusts its CA, so phones and other devices on your local network always see the warning. For
+those, use [ACME certificates](/docs/proxy-and-tls#acme).
+
+## Server-side requests fail with certificate errors
+
+A service calling another through its proxy URL, such as `LO1_SERVICE_API_PROXY_URL`, from server
+code can fail with an error such as `UNABLE_TO_GET_ISSUER_CERT_LOCALLY`. Browsers trust the local CA,
+but most runtimes, Node.js among them, ship their own list of trusted authorities and don't read the
+system store.
+
+Call the service on its direct URL instead, `LO1_SERVICE_API_URL`, which skips the proxy and TLS
+(see [service discovery](/docs/service-discovery)). If you need the proxy URL, point Node.js at
+lo1's CA, which `lo1 up` saves in the workspace:
+
+```yaml title="lo1.yaml"
+services:
+  web:
+    env:
+      NODE_EXTRA_CA_CERTS: /path/to/workspace/.lo1/caddy-root.crt
+```
+
+## lo1 says it's ready, but the site doesn't load
+
+**"This site can't be reached":** the domain isn't resolving to your machine. Check that the hosts
+file has lo1's block (see [the hosts file](#the-hosts-file-cant-be-updated)). If you opened the URL
+before it was added, Chrome may have cached the failed lookup: clear it at
+`chrome://net-internals/#dns`, or wait a minute.
+
+**"502 Bad Gateway":** the proxy runs in Docker and can't reach the service on your machine. Check
+that the service is listening on the `port` in `lo1.yaml`, for example with
+`curl http://localhost:4200`, then:
+
+- **Linux:** containers reach your machine on Docker's bridge network, not on `localhost`, so a
+  service listening only on `127.0.0.1` can't be reached. Make it listen on all interfaces, for
+  example `--host 0.0.0.0` for Vite. A firewall such as `ufw` can also block traffic from Docker's
+  network.
+- **Windows:** when Windows Firewall asks whether Node.js, or your service's runtime, can accept
+  connections, allow it on private networks. If you dismissed the prompt, allow it under Windows
+  Security → Firewall & network protection → Allow an app through firewall.
+
+## A service or init task fails to start
+
+```text
+Init task "migrate" exited with code 1
+```
+
+An [init task](/docs/configuration#init-tasks) must exit `0` before anything that depends on it
+starts. Run `lo1 logs migrate` to see why it failed. A common cause is running before the database
+accepts connections: give the database a `healthcheck` in its Compose file, and lo1 waits for it.
+
+When a `readinessProbe` times out, lo1 has polled the URL for 60 seconds without a `2xx` response.
+Check the service's log, and that the probe URL is right: it's requested from your machine, so it
+uses `localhost` and the service's port, such as `http://localhost:4100/health`.
+
+## Another lo1 command is still changing this workspace
+
+```text
+Another lo1 command (pid 4821) is still changing this workspace. Wait for it to finish, then try again.
+```
+
+Restarts take a lock on the workspace, so two never interleave: `lo1 restart`, and the restarts
+`lo1 up` makes when a watched service changes. lo1 waits up to two minutes for the other one before
+giving up. Wait for it to finish, or stop that process if it's stuck. If the process has already
+exited, lo1 takes over its lock by itself.
+
+## Still stuck?
+
+Open an issue on [GitHub](https://github.com/newstack-cloud/lo1/issues) with the output of
+`lo1 doctor --json`, the command you ran and its output.

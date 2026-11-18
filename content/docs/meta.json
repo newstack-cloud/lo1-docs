@@ -11,6 +11,7 @@
     "proxy-and-tls",
     "service-discovery",
     "coding-agents",
+    "troubleshooting",
     "---Reference---",
     "cli",
     "plugins"
