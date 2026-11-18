@@ -39,6 +39,9 @@ passed through unchanged, so the service sees `/api/orders`, not `/orders`.
 `lo1 hosts` prints the hosts file block for every domain, and `lo1 hosts --apply` writes it. `lo1 up`
 does this for you.
 
+On Windows, writing the hosts file needs administrator rights, so unless PowerShell is running as
+Administrator, lo1 shows a UAC prompt instead of asking for `sudo`.
+
 With `proxy.enabled: false`, lo1 does not run a proxy, so it leaves the hosts file alone and `lo1 up`
 doesn't ask for `sudo`. Reach services on `localhost` at their ports instead.
 
@@ -47,8 +50,13 @@ doesn't ask for `sudo`. Reach services on `localhost` at their ports instead.
 ### `internal`
 
 The default. Caddy's built-in certificate authority issues the certificates, and when TLS is enabled
-`lo1 up` installs its root into your machine's trust store. On Linux this needs `sudo`. You can also
-run [`lo1 tls-setup`](/docs/cli#lo1-tls-setup) to reinstall it on its own.
+`lo1 up` installs its root into your machine's trust store. On Linux this needs `sudo`, and Chrome
+and Firefox also need `certutil` ([installation](/docs/installation#prerequisites)) because they keep
+their own stores. You can also run [`lo1 tls-setup`](/docs/cli#lo1-tls-setup) to reinstall it on its
+own. On Windows the root goes into your user's certificate store, which Chrome and Edge use, after
+Windows asks you to confirm it. Restart a browser that was already open if it still shows a warning.
+If you clicked through a warning before the CA was trusted, Chrome remembers that: click **Not
+secure** in the address bar, choose **Turn on warnings**, and restart Chrome.
 
 Only the machine running lo1 trusts these certificates, so other devices on your network will see
 warnings.

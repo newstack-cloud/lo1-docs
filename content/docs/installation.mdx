@@ -1,11 +1,15 @@
 ---
 title: Installation
-description: Install the lo1 CLI on macOS or Linux, or on Windows through WSL 2.
+description: Install the lo1 CLI on macOS, Linux or Windows.
 icon: Download
 ---
 
-lo1 runs on macOS and Linux. On Windows, install and run it inside
-[WSL 2](https://learn.microsoft.com/windows/wsl/install), with Docker Desktop's WSL integration turned on.
+lo1 runs on macOS, Linux and Windows. On Windows, run it from PowerShell with Docker Desktop.
+
+You can run it inside [WSL 2](https://learn.microsoft.com/windows/wsl/install) instead, with Docker
+Desktop's WSL integration turned on for your distribution. lo1 then updates the hosts file and
+trusts its certificate authority inside Linux, so a browser on Windows won't find the workspace's
+domains or trust its certificates.
 
 ## Prerequisites
 
@@ -17,6 +21,16 @@ lo1 runs on macOS and Linux. On Windows, install and run it inside
 
 Docker Compose v2 ships with Docker Desktop on macOS and Windows, and with current Docker Engine
 packages on Linux.
+
+On Linux, install `certutil` too if you use TLS. Chrome and Firefox don't read the system
+certificate store, so `lo1 up` uses `certutil` to add its local certificate authority to theirs.
+Without it, they show "Your connection is not private" for every service.
+
+```bash
+sudo apt install libnss3-tools   # Debian, Ubuntu
+sudo dnf install nss-tools       # Fedora
+sudo pacman -S nss               # Arch
+```
 
 ## Install the CLI
 

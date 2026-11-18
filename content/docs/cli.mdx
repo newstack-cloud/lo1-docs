@@ -24,7 +24,9 @@ that already exist are skipped, and the command exits with an error if any clone
 
 Starts infrastructure, runs workspace hooks, then starts services in dependency order. It reads
 `lo1.yaml` from the current directory, asks for `sudo` up front when it needs to update the hosts file
-(or, on Linux, trust the local certificate authority), and cleans up any previous run first.
+(or, on Linux, trust the local certificate authority), and cleans up any previous run first. On
+Windows there is no `sudo`: unless PowerShell is running as Administrator, a UAC prompt appears when
+lo1 writes the hosts file.
 
 It fails before starting anything if a port it needs is already in use, and names the setting to
 change. Once every service is ready it prints a summary with each service's URL and how long each
@@ -124,7 +126,8 @@ With `--json` it prints one object with `workspace`, `healthy`, `services` (each
 
 Checks that this machine and workspace are ready for `lo1 up`: Node.js, Docker and its daemon, Docker
 Compose v2, Git, and, in a workspace, that `lo1.yaml` is valid, that the ports it needs are free,
-whether its domains are in the hosts file yet, and that any ACME credentials are set. Each check
+whether its domains are in the hosts file yet, that any ACME credentials are set, and, on Linux with
+TLS enabled, that `certutil` is installed so Chrome and Firefox can trust the local CA. Each check
 prints `✓`, `!` (a warning) or `✗` (a problem) with a suggested fix.
 
 It exits `1` if any check fails. With `--json` it prints `{ "ok": …, "checks": [...] }`.
@@ -148,9 +151,9 @@ Prints the hosts file entries for the workspace's domains.
 
 | Option            | Description                                      |
 | ----------------- | ------------------------------------------------ |
-| `--apply`         | Write the entries to the hosts file (needs sudo). |
-| `--remove`        | Remove the entries (needs sudo).                 |
-| `--config <path>` | Path to the config file. Default `lo1.yaml`.     |
+| `--apply`         | Write the entries to the hosts file. Needs `sudo`, or a UAC prompt on Windows. |
+| `--remove`        | Remove the entries. Needs `sudo`, or a UAC prompt on Windows.                  |
+| `--config <path>` | Path to the config file. Default `lo1.yaml`.                                   |
 
 ## `lo1 tls-setup`
 
@@ -160,7 +163,8 @@ Trusts Caddy's local certificate authority so browsers accept local certificates
 It needs a running workspace, and copies the certificate out of its proxy container. It does nothing
 when `proxy.tls.mode` is `acme`, because there is no local certificate authority.
 
-| Platform | Where the certificate goes                                                      |
-| -------- | ------------------------------------------------------------------------------- |
-| macOS    | Your login keychain, with `security add-trusted-cert`.                          |
-| Linux    | `/usr/local/share/ca-certificates`, then `update-ca-certificates` (needs sudo). |
+| Platform | Where the certificate goes                                                                                                                         |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS    | Your login keychain, with `security add-trusted-cert`.                                                                                             |
+| Linux    | `/usr/local/share/ca-certificates`, then `update-ca-certificates` (needs sudo). With `certutil`, also Chrome's `~/.pki/nssdb` and each Firefox profile. |
+| Windows  | Your user's Root store, with `certutil -addstore -user Root`. Windows asks you to confirm the "Caddy Local Authority" certificate. |

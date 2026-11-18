@@ -49,6 +49,11 @@ lo1 asks for `sudo` to add `api.shop.local` and `web.shop.local` to your hosts f
 prompt covers trusting its local certificate authority; on macOS the certificate goes into your login
 keychain, which may show its own password dialog the first time.
 
+On Windows, unless PowerShell is running as Administrator, a UAC prompt asks to update the hosts file.
+Windows then asks you to confirm installing the "Caddy Local Authority" certificate. Windows Firewall
+may ask whether Docker and Node.js can accept connections: allow them on private networks, since the
+proxy runs in Docker and reaches your services through the host.
+
 Then it starts Postgres and waits for its health check, runs the migration, loads the seed data,
 starts the API and waits for it to answer on `/health`, and finally starts the web app:
 
