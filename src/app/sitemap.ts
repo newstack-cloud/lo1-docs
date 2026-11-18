@@ -3,7 +3,7 @@ import path from 'node:path';
 import { promisify } from 'node:util';
 import type { MetadataRoute } from 'next';
 import { baseUrl } from '@/lib/metadata';
-import { source } from '@/lib/source';
+import { getBlogPosts, source } from '@/lib/source';
 
 export const revalidate = false;
 
@@ -81,6 +81,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             changeFrequency: 'monthly',
             priority: 0.8,
         },
+        ...getBlogPosts().map(
+            (post) =>
+                ({
+                    url: url(post.url),
+                    lastModified: new Date(`${post.data.date}T00:00:00Z`),
+                    changeFrequency: 'monthly',
+                    priority: 0.6,
+                }) as MetadataRoute.Sitemap[number],
+        ),
         ...source.getPages().map((page) => {
             const lastModified = modified.get(page.data._file.absolutePath);
 

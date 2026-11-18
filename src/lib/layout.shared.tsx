@@ -1,5 +1,6 @@
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
 import Logo from '../components/logo';
+import { getBlogPosts } from './source';
 
 /**
  * Shared layout configurations
@@ -22,6 +23,10 @@ export function baseOptions(): BaseLayoutProps {
         secondary: false,
         active: 'nested-url',
       },
+      // The blog only joins the nav once it has a published post.
+      ...(getBlogPosts().length > 0
+        ? [{ text: 'Blog', url: '/blog', secondary: false, active: 'nested-url' as const }]
+        : []),
     ],
   };
 }

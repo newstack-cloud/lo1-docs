@@ -1,4 +1,5 @@
-import { docs } from '@/.source';
+import { blogPosts, docs } from '@/.source';
+import { createMDXSource } from 'fumadocs-mdx';
 import { loader } from 'fumadocs-core/source';
 import { icons } from 'lucide-react';
 import { createElement } from 'react';
@@ -13,3 +14,15 @@ export const source = loader({
   },
   source: docs.toFumadocsSource(),
 });
+
+const showDrafts = process.env.NODE_ENV === 'development';
+
+export const blog = loader({
+  baseUrl: '/blog',
+  source: createMDXSource(blogPosts.filter((post) => showDrafts || !post.draft)),
+});
+
+/** Published posts, newest first. */
+export function getBlogPosts() {
+  return blog.getPages().sort((a, b) => b.data.date.localeCompare(a.data.date));
+}

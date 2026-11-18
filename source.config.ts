@@ -1,4 +1,6 @@
+import { z } from 'zod';
 import {
+  defineCollections,
   defineConfig,
   defineDocs,
   frontmatterSchema,
@@ -20,6 +22,21 @@ export const docs = defineDocs({
   meta: {
     schema: metaSchema,
   },
+});
+
+/**
+ * Blog posts in content/blog. `author` is a key in src/lib/authors.ts, and a
+ * `draft` post only appears when running `yarn dev`.
+ */
+export const blogPosts = defineCollections({
+  type: 'doc',
+  dir: 'content/blog',
+  schema: frontmatterSchema.extend({
+    author: z.string(),
+    // YAML reads 2026-12-01 as a Date; keep it as a plain YYYY-MM-DD string.
+    date: z.coerce.date().transform((d) => d.toISOString().slice(0, 10)),
+    draft: z.boolean().default(false),
+  }),
 });
 
 export default defineConfig({
