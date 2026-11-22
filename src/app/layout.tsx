@@ -13,6 +13,7 @@ export const metadata = createMetadata({
   },
   description: 'One command to run every frontend, backend and piece of infrastructure your team builds, wired together and served over HTTPS on real local domains.',
   metadataBase: baseUrl,
+  openGraph: { url: '/' },
 });
 
 const inter = Inter({

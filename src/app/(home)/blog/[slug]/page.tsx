@@ -67,7 +67,7 @@ export async function generateMetadata(props: PageProps<'/blog/[slug]'>): Promis
         alternates: { types: { 'application/rss+xml': '/blog/rss.xml' } },
         openGraph: {
             type: 'article',
-            url: post.url,
+            url: `${post.url}/`,
             publishedTime: post.data.date,
             authors: [author.linkedin],
         },

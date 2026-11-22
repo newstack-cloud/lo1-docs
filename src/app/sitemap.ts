@@ -66,8 +66,9 @@ async function lastModifiedByFile(): Promise<Map<string, number>> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+    // trailingSlash is on, so the slashed URL is the canonical one.
     const url = (pathname: string): string =>
-        new URL(pathname, baseUrl).toString();
+        new URL(pathname.endsWith('/') ? pathname : `${pathname}/`, baseUrl).toString();
     const modified = await lastModifiedByFile();
 
     return [
