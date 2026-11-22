@@ -4,6 +4,7 @@ import { createMetadata } from '@/lib/metadata';
 export const metadata = createMetadata({
     title: 'Privacy',
     description: 'What lo1.dev and the NewStack mailing list collect, and why.',
+    openGraph: { url: '/privacy/' },
 });
 
 /** Keep in step with the site: update it when analytics or another service is added. */

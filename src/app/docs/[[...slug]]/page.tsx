@@ -11,6 +11,7 @@ import { createRelativeLink } from 'fumadocs-ui/mdx';
 import { getMDXComponents } from '@/mdx-components';
 import { LLMCopyButton, ViewOptions } from '@/components/page-actions';
 import { toMarkdownUrl } from '@/lib/get-llm-text';
+import { createMetadata } from '@/lib/metadata';
 
 export default async function Page(props: PageProps<'/docs/[[...slug]]'>) {
   const params = await props.params;
@@ -57,8 +58,9 @@ export async function generateMetadata(
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
-  return {
+  return createMetadata({
     title: page.data.title,
     description: page.data.description,
-  };
+    openGraph: { url: `${page.url}/` },
+  });
 }

@@ -8,6 +8,7 @@ export const metadata = createMetadata({
     title: 'Blog',
     description: 'Writing about running multi-service systems locally, from the people building lo1.',
     alternates: { types: { 'application/rss+xml': '/blog/rss.xml' } },
+    openGraph: { url: '/blog/' },
 });
 
 export default function BlogIndex() {
