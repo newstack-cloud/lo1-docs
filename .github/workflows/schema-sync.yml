@@ -1,0 +1,43 @@
+name: Schema Sync Check
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "public/schemas/**"
+  pull_request:
+    paths:
+      - "public/schemas/**"
+  # Weekly check to catch upstream schema changes
+  schedule:
+    - cron: "0 9 * * 1" # Monday 9:00 UTC
+
+jobs:
+  check-schema-sync:
+    name: Check schema files are in sync with upstream
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare the lo1 config schema with upstream
+        run: |
+          upstream_url="https://raw.githubusercontent.com/newstack-cloud/lo1/main/packages/sdk/schemas/lo1.v1.schema.json"
+          local_path="public/schemas/lo1.v1.schema.json"
+
+          echo "Fetching upstream schema from the lo1 repo..."
+          curl -sSf "$upstream_url" -o /tmp/upstream-schema.json
+
+          echo "Comparing with local copy..."
+          if diff -q "$local_path" /tmp/upstream-schema.json > /dev/null 2>&1; then
+            echo "Schemas are in sync."
+          else
+            echo "::error::Schema drift detected! Local schema differs from upstream."
+            echo ""
+            echo "Diff (local vs upstream):"
+            diff --unified "$local_path" /tmp/upstream-schema.json || true
+            echo ""
+            echo "To fix: copy the latest schema from the lo1 repo:"
+            echo "  cp <lo1>/packages/sdk/schemas/lo1.v1.schema.json public/schemas/"
+            exit 1
+          fi
