@@ -10,7 +10,7 @@ const footerLinks = [
   { text: 'Documentation', href: '/docs' },
   { text: 'GitHub', href: 'https://github.com/newstack-cloud/lo1' },
   { text: 'npm', href: 'https://www.npmjs.com/package/@lo1/cli' },
-  { text: 'Celerity', href: 'https://celerityframework.io' },
+  { text: 'Celerity', href: 'https://celerity.dev' },
   { text: 'Bluelink', href: 'https://bluelink.dev' },
   { text: 'Privacy', href: '/privacy' },
 ];

@@ -14,7 +14,7 @@ const stages = [
         name: 'Celerity',
         verb: 'Build and ship it',
         body: 'Portable backend building blocks: APIs, WebSockets, queues and more, described in blueprints and deployed to your cloud. The lo1 Celerity plugin will read the same blueprints and start the matching local infrastructure for you.',
-        href: 'https://celerityframework.io',
+        href: 'https://celerity.dev',
         status: 'v0 end of February 2027',
         current: false,
     },
