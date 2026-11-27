@@ -1,0 +1,346 @@
+---
+title: How to run your whole system locally and catch integration bugs
+description: >-
+  Integration bugs like API drift, CORS and cookies, and HTTPS-only browser features usually show up
+  in staging. Running your whole system locally catches them sooner.
+author: andre-sutherland
+date: 2026-11-27
+---
+
+When building software systems, there is a generally accepted idea that “it works locally” or
+“it works on my machine” is to be taken with a pinch of salt. That's fair: with lightweight local dev servers, mocks
+and unit test suites, it can be hard to trust what happens locally when it looks little like production,
+leaving the real verdict for QA or staging.
+
+Over the years, I've been wrestling with this idea, adamant that there is (to a certain extent) a way
+to catch a lot of these integration issues within minutes or even seconds of making changes locally.
+
+## Why every service passes its tests and the system still breaks
+
+Often, the focus for quality can index too much on isolated test suites for a single component in a system.
+Whether it's unit tests for functions, component/API tests for an endpoint or a reactive task, or integration boundary
+tests, the focus is on how a piece of software interacts with a snapshot of the outside world.
+
+<TestScopeDiagram />
+
+It's hard to put all your trust in the isolated tests because the snapshot of the
+outside world in panel 1 is what you believed about the other side when the test was written.
+When the other side changes, the snapshot is no longer a reliable source of truth about its shape or behaviour
+and the tests keep passing as if all is well.
+
+In addition to snapshots going stale, in an organisation where each team tests its own services, more often than not, nobody takes
+ownership of the space between them. This then pushes the discovery of integration issues to after changes have been deployed
+to QA or staging.
+
+In the diagram above, panel 2 is what brings forward the ability to test the real integration
+without waiting for a deployment and having to navigate the issues in a place where it is hard to debug.
+
+You might be thinking: can't we just write more automated tests that deal with the outside world like panel 3? After all, that's
+what customers will be dealing with when it ships. The answer is you can, but it comes at a cost: slower runs, flaky tests, environments that need maintenance and failures that are hard to trace.
+It's better to search for a balance of the two approaches rather than go all in on one or the other.
+
+The isolated suites act as a solid base for good software with cheap, reliable tests that can be repeated
+as often as needed. Then you can have the whole system running locally, dynamically responding to changes
+before they go anywhere near QA or staging — giving you or your coding agents an incredibly fast feedback loop.
+
+In practice, "the whole system" means the slice your change touches, those services and what they depend on.
+When your system consists of a handful of services (an API, frontend, a few event-driven jobs) then that
+can all comfortably run locally; if we're talking about a complex system with hundreds of microservices, you'd run
+a relevant subset and use stand-ins for everything else.
+
+QA, staging and cloud end-to-end tests still have an important role to play; we'll be exploring that further in [What local can't catch](#what-local-cant-catch).
+
+The three issues we'll be touching on next are some that a stale snapshot hides and a local system catches:
+API drift, CORS and cookies between hosts, and features that need HTTPS.
+
+## API drift
+
+Picture a case where the payments team from the diagram above has changed `amount` from
+a number in pounds to an object to support more currencies.
+
+```json title="Before"
+{
+  "amount": 12.5
+}
+```
+
+```json title="After"
+{
+  "amount": {
+    "value": 1250,
+    "currency": "GBP"
+  }
+}
+```
+
+In this particular instance, the orders team wasn't made aware that the shape of the amount field
+had changed, as it was buried in a bigger release on the payments side for changes to the payments processor.
+
+The orders team maintains a snapshot of the payments service in a stub of the following form:
+
+```json title="Stub"
+{
+  "predicates": [{
+    "equals": {
+      "method": "GET",
+      "path": "/payments/pay_123"
+    }
+  }],
+  "responses": [{
+    "is": {
+      "body": {
+        "amount": 12.5
+      }
+    }
+  }]
+}
+```
+_Example in the [mountebank](https://www.mbtest.dev/docs/api/predicates) predicate format._
+
+When the current suite of tests runs for the orders service, the tests pass as the stub continues
+to return the old response. The issue doesn't show up until the payments team releases the update along with
+the wider payments processor changes in the QA environment. Orders don't fail outright; they're saved with
+a total of `NaN`, and the orders team needs to work with the payments team to debug what broke and correct the
+contract and the implementation in the orders service.
+
+With the system running locally (panel 2 in the diagram), the developer on the payments team making the change
+places an order and sees the broken total before the change is even merged. They find out in minutes on their
+local machine or in an agent sandbox, with both services' logs right in front of them to rapidly identify and
+address the issue.
+
+Automated schema checks and tools such as [Pact](https://docs.pact.io/) can help a lot with automated testing
+of contracts. If the orders team had a pact for this interaction and the payments team verified it in CI,
+this exact change would have failed the payments build. Even with this kind of tooling, contracts only cover
+the interactions someone wrote down, and only when both teams have adopted the tooling and keep it up to date.
+
+## CORS and cookies between hosts
+
+When using `localhost` for running the frontend locally, the API usually is on another port.
+For example, you could have `localhost:3000` running the web app dev server and `localhost:4000`
+for the API. These are different origins, but CORS rules still rarely get tested locally, as the dev server
+often proxies API requests so the browser sees them as same-origin, or the API allows any `localhost` origin.
+Neither exercises rules that map to those in a deployed environment. An allowed origin of `["http://localhost:3000"]` is less
+likely to catch CORS errors surfacing in staging than that of `["https://app.{env}.store.com"]`, which maps across environments.
+
+Related cookie-based bugs can also hide on localhost. Ports are not considered for SameSite cookies:
+`localhost:3000` and `localhost:4000` are the same site. Secure cookies also work over plain HTTP on
+localhost, when they'd be rejected on any other HTTP host. A cookie domain
+such as `.store.com` can't be tested on `localhost`, so cookies shared across subdomains aren't tested until staging.
+
+What catches this in a local setup is having each service on its own hostname, over HTTPS, as it is in production.
+
+## The need for HTTPS
+
+It's worth saying up front that Chrome and Firefox treat `localhost` as a secure context, so service workers,
+secure cookies and APIs like `crypto.subtle` all work over plain HTTP there. That's handy for a quick
+dev server, but it also means a whole class of issues stays hidden until the app is on a real hostname.
+Once each service has its own hostname such as `api.local.store.com`, as in the previous section, or you open the app on a phone over
+your local network, plain HTTP is no longer a secure context and the browser starts behaving the way it
+does in production.
+
+This was something I learnt the hard way, going through a gruelling process of
+getting file uploads to mirror a deployed environment locally along with subdomain-scoped PWAs in a recent project.
+
+### Uploads straight to object storage
+
+Picture a case where the web app lets customers upload photos with [Uppy](https://uppy.io/), straight
+from the browser to an S3 bucket. The web app asks a backend service for a signed URL, then sends the
+file to the bucket itself, so three parts of the system have to agree with each other: the frontend,
+the backend that signs the URL and the storage service. Locally, uploads tend to be tested against a mock
+or a bucket that allows everything, and there are a few things that don't show up until staging.
+
+The first is the bucket's CORS rules. The upload is a cross-origin request from the web app to the bucket,
+so the bucket needs to allow the web app's origin and the methods Uppy uses. For multipart uploads, Uppy
+also needs to read the `ETag` header from the response for each part, and the browser hides it unless the
+bucket exposes it:
+
+```json title="Bucket CORS rules"
+{
+  "CORSRules": [{
+    "AllowedOrigins": ["https://app.store.com"],
+    "AllowedMethods": ["GET", "PUT", "POST"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"]
+  }]
+}
+```
+
+If you leave out `ExposeHeaders`, the parts upload fine, but Uppy can't read their `ETag`s and the upload
+fails with an error pointing at the bucket's CORS configuration.
+
+The second is the host in the signed URL. The signature covers the host the URL was signed for, so when the
+backend runs in Docker and talks to a local S3 such as LocalStack at `http://localstack:4566`, it hands the
+browser a URL for a hostname the browser can't reach. Rewriting the host afterwards breaks the signature, and
+S3 rejects the request with `SignatureDoesNotMatch`. The same goes for headers the URL was signed with. If the
+backend signs for a specific `Content-Type` and the browser sends a different one, the upload is rejected.
+
+The third is mixed content. Once the web app is on HTTPS, every request it makes has to be HTTPS too, and an
+upload to a storage endpoint on plain HTTP is blocked by the browser. A setup on `localhost` won't tell you
+this, as Chrome and Firefox allow requests to `http://localhost` from a secure page.
+
+What catches all three locally is the web app, the backend and a local S3 such as LocalStack, each on a real
+hostname over HTTPS, with the bucket configured as it is in production. LocalStack doesn't check the signatures of signed URLs by
+default, so set `S3_SKIP_SIGNATURE_VALIDATION=0` to have it check them as S3 does. An upload on your machine then goes
+through the same CORS checks, signed URLs and mixed content rules as it would in staging.
+
+### Service workers
+
+Service workers need a secure context to register, and each one is scoped to a single origin. Because
+`localhost` counts as secure, it's easy to build an offline mode or push notifications on your machine and never see registration fail. Open the same app on a
+phone over your local network at `http://192.168.1.20:3000` and `navigator.serviceWorker` is undefined. Put it
+behind HTTPS with a certificate the browser doesn't trust and registration still fails, even after clicking
+through the warning. HTTPS on its own isn't enough: the certificate has to be trusted by the device.
+
+The origin scope is what pushed me to a fuller local setup. The PWAs were scoped to each tenant's subdomain,
+such as `acme.store.com` and `globex.store.com`, so each tenant got its own service worker, caches and install.
+An app on `localhost:3000` can only ever be one origin, so testing across tenants meant setting up hosts file
+entries for each tenant's subdomain and full HTTPS with a certificate the browser trusts, giving me the same
+origins locally as in production. Chrome and Firefox resolve names like `acme.localhost`, which gets part of the
+way there, but they don't match the domains the app expects in production and they don't work on a phone.
+
+Like the CORS and cookie issues, what catches these locally is each service on its own hostname, over HTTPS,
+with a certificate your browser and devices trust.
+
+## What running the whole system locally takes
+
+To catch the issues above before they get to QA or staging, a local setup needs more than a couple of dev
+servers and a database container. Whichever tools you use, it comes down to the following:
+
+- Real infrastructure, such as the database, message broker and caches, running in containers or emulators.
+- Services that find each other by URL, configured the same way they are in production rather than through
+  special cases for local.
+- Real hostnames and HTTPS with a trusted certificate, for the CORS and cookie issues, uploads and
+  service workers.
+- Local stand-ins for the cloud services that can't run on your machine, such as an AWS emulator like LocalStack for S3.
+- Everything started in the right order, with migrations and seed data, so the system is usable as soon as
+  it comes up.
+- The service you're changing running from source with hot reload, and everything else from images.
+
+There are a few common ways to get there, each with its trade-offs.
+
+Docker Compose for everything is the simplest place to start, and most teams already have a compose file
+for their infrastructure. Compose Watch syncs source changes into the container for the service you're
+changing, but a dependency change means a rebuild and the container setup has to support hot reload, and
+hostnames and HTTPS are left for you to set up with a proxy and certificates of your own.
+
+Tools such as [Tilt](https://tilt.dev/) and [Skaffold](https://skaffold.dev/) are powerful and handle
+rebuilding and redeploying as you make changes. They're built mainly around Kubernetes, though both can also
+run plain Docker or a compose file. If production runs on Kubernetes, a local cluster gets you close to it,
+but if it doesn't, much of what they offer goes unused. For systems too big to run on one machine, tools like [Telepresence](https://telepresence.io/)
+and [mirrord](https://metalbear.com/mirrord/) take a different approach, connecting the service on your machine to the
+rest of the system in a shared cluster.
+
+Then there are scripts and a README, which is probably the most common setup of all. They work for whoever
+wrote them, and they drift as the system changes, until starting the system locally becomes a half-day job
+for anyone joining the team.
+
+## Where lo1 fits
+
+After years of piecing together my own versions of the setup above for different projects, with compose
+files, scripts and a proxy configured by hand, I built [lo1](/docs) to do it from a single `lo1.yaml`.
+It's open source and runs on macOS, Linux and Windows.
+
+lo1 starts your infrastructure from an ordinary Docker Compose file, runs init tasks such as migrations and
+seed data, then starts each service in dependency order. Each service runs in dev mode with its own command,
+so your usual dev server and hot reload keep working, or in a container from an image. A Caddy proxy in front
+gives every service with a port its own hostname, over HTTPS if you turn it on. By default the certificate is
+trusted by your machine only, and for phones and other devices on your network, [ACME mode](/docs/proxy-and-tls#acme)
+gets a certificate from a public CA such as Let's Encrypt instead.
+
+```yaml title="lo1.yaml"
+version: "1"
+name: shop
+
+# Postgres and anything else the services need, as an ordinary compose file.
+extraCompose: ./infra.compose.yaml
+
+services:
+  # The migrate and seed init tasks and env are left out here.
+  api:
+    type: service
+    path: ./api
+    port: 4100
+    command: node src/server.js
+    readinessProbe: http://localhost:4100/health
+    dependsOn: [seed]
+
+  web:
+    type: app
+    path: ./web
+    port: 4200
+    command: node src/server.js
+    dependsOn: [api]
+
+proxy:
+  tld: local
+  tls:
+    enabled: true
+```
+
+For bigger systems, you don't have to run all of it.
+`lo1 up --services api,web` starts the services you name plus everything they depend on, and setting
+[`mode: skip`](/docs/configuration#modes) on a service leaves it out entirely, so you run the slice you're
+working on and lo1 works out the rest. `lo1 up --detach` returns once everything is ready, or exits non-zero if something fails to start,
+which also makes it a good fit for [coding agents](/docs/coding-agents) testing their changes against the real system.
+
+Here's what a run looks like with the shop example from the [quick start](/docs/quick-start): a web app,
+an API and Postgres with a migration and seed data:
+
+<TerminalCast src="/assets/lo1-up.cast" label="Recording of lo1 up in the shop example: Postgres starts, the migration and seed run, then the API and web app start and their HTTPS URLs are listed.">
+
+```text
+$ lo1 up
+[lo1] Starting infrastructure
+[lo1] Starting services
+[lo1] migrate: completed
+[lo1] seed: completed
+[lo1] api: started
+[lo1] web: started
+[lo1] Ready
+
+  Workspace shop is ready in 3.7s
+    infrastructure 2.4s · services 1.3s
+
+  Services:
+    api  https://api.shop.local
+    web  https://web.shop.local
+```
+
+</TerminalCast>
+
+## What local can't catch
+
+Running the whole system locally doesn't replace QA, staging or end-to-end tests in a cloud environment,
+and it's worth being clear about where it stops.
+
+The first is load and the network. Everything on your machine talks over loopback with next to no latency,
+and nothing else is competing for the database. Timeouts, retries, connection pool limits and what happens
+when a service is slow or unreachable for a few seconds don't show up until there's a real network and real
+traffic in between.
+
+Then there's the cloud itself. An emulator like LocalStack gets you the APIs, but by default it doesn't
+enforce IAM, so a role missing a permission works fine locally and fails in staging. The same goes for
+service limits, quotas and the quirks of managed services that an emulator either doesn't reproduce or
+can't keep up with.
+
+Data is another one. A query that's quick against a few hundred seeded rows can fall over against millions,
+and seed data rarely has the odd shapes production data picks up over the years, the missing fields, the
+legacy formats and the edge cases nobody remembers adding.
+
+Finally, there's the size of the system. With hundreds of services, you run the slice around your change on your
+machine, and the interactions beyond that slice still need to be found further along.
+
+Staging still has an important job to do; it just shouldn't be where you first find out that two services
+disagree.
+
+## Wrapping up
+
+Bugs often live between services, so testing the system where it runs together gives you the best
+chance of catching them, and doing so locally allows you to rapidly find and address them as you
+make changes.
+
+Are there any bugs discovered in QA or staging that you wish you'd caught earlier? I'd love to hear about
+them in [GitHub Discussions](https://github.com/newstack-cloud/lo1/discussions/38).
+
+If your setup needs something lo1 doesn't do yet, [open an issue](https://github.com/newstack-cloud/lo1/issues)
+and let me know.
